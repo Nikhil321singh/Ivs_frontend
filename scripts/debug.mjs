@@ -1,0 +1,11 @@
+import puppeteer from 'puppeteer-core'
+const browser = await puppeteer.launch({ executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless:'new', args:['--no-sandbox','--disable-gpu'] })
+const page = await browser.newPage()
+page.on('console', m => console.log('CONSOLE:', m.type(), m.text()))
+page.on('pageerror', e => console.log('PAGEERROR:', e.message))
+page.on('requestfailed', r => console.log('REQFAIL:', r.url(), r.failure()?.errorText))
+await page.goto('http://localhost:5713/#/login', { waitUntil:'networkidle0' })
+await new Promise(r=>setTimeout(r,800))
+const html = await page.evaluate(()=>document.getElementById('root').innerHTML.slice(0,300))
+console.log('ROOT_LEN:', html.length, 'ROOT:', JSON.stringify(html))
+await browser.close()

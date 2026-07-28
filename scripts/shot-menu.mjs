@@ -1,0 +1,11 @@
+import puppeteer from 'puppeteer-core'
+const b = await puppeteer.launch({ executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless:'new', args:['--no-sandbox','--disable-gpu','--hide-scrollbars'] })
+const p = await b.newPage()
+await p.setViewport({ width:390, height:844, deviceScaleFactor:3, isMobile:true, hasTouch:true })
+await p.goto('http://localhost:5713/#/home', { waitUntil:'networkidle0' })
+await p.waitForFunction(()=>document.getElementById('root')?.innerText.trim().length>0,{timeout:10000})
+await p.click('button[aria-label="Menu"]')
+await new Promise(r=>setTimeout(r,500))
+await p.screenshot({ path:'/tmp/grest-menu.png' })
+console.log('done')
+await b.close()
