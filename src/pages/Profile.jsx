@@ -10,8 +10,9 @@ import { toPhone } from '../utils/format'
 // (no backend for policy/help pages yet).
 const MENU = [
   { key: 'settings', label: 'Account settings', icon: 'ic-settings', route: ROUTES.profileEdit },
-  { key: 'privacy', label: 'Privacy Policy', icon: 'ic-privacy' },
-  { key: 'help', label: 'Help & support', icon: 'ic-help' },
+  { key: 'credits', label: 'Credits & tokens', icon: 'ic-payment', route: ROUTES.wallet },
+  { key: 'privacy', label: 'Privacy Policy', icon: 'ic-privacy', route: ROUTES.privacy },
+  { key: 'help', label: 'Help & support', icon: 'ic-help', route: ROUTES.help },
 ]
 
 // Figma: Profile 7749:1984 — Account bottom-nav tab. Reads the live user from the
@@ -47,8 +48,7 @@ export default function Profile() {
   return (
     <PhoneFrame
       scroll={false}
-      bg=""
-      style={{ backgroundImage: 'linear-gradient(to bottom, #fbe2e9 0%, #fdf6f1 100%)' }}
+      bg="bg-screen-grad"
       overlay={
         confirmDelete && (
           <div className="absolute inset-0 z-50 flex items-end">

@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 // Bundle Inter locally (offline-safe for the Capacitor WebView; no CDN dependency)
 import '@fontsource/inter/400.css'
@@ -19,10 +20,12 @@ import './index.css'
 // Capacitor's WebView (file:// origin) without server-side route handling.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <HashRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </HashRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 )

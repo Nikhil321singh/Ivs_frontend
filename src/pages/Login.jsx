@@ -32,13 +32,7 @@ export default function Login() {
   }
 
   return (
-    <PhoneFrame
-      bg=""
-      style={{
-        backgroundImage:
-          'linear-gradient(to bottom, #fdf6f1 5.569%, #fdf1f4 30.552%, #fbe5eb 44.334%, #fbe5eb 100%)',
-      }}
-    >
+    <PhoneFrame bg="bg-screen-grad">
       <div className="flex flex-1 flex-col">
         {/* back */}
         <div className="px-5 pt-3">

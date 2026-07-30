@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import { Preferences } from '@capacitor/preferences'
 import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
 import Field from '../components/Field'
@@ -10,6 +11,32 @@ import { ROUTES } from '../constants/routes'
 import { useAuth } from '../context/AuthContext'
 import { updateProfile } from '../api/user'
 import { toEmail } from '../utils/format'
+
+// This screen opens the OS camera/gallery. On low-RAM devices (e.g. the Redmi
+// Note 9, flagged a "lowmemory device" by MIUI) Android's LMK kills the whole
+// app process while the picker is foregrounded, so on return the app cold-starts
+// and would drop the user on the start screen with their edits lost.
+//
+// We persist a "resume" record (flag + draft fields) so a kill is
+// non-destructive: App.jsx sends the user back here on next launch and the text
+// fields are restored. IMPORTANT: this MUST use @capacitor/preferences (native
+// SharedPreferences), NOT localStorage — when the WebView is backgrounded for
+// the picker it defers flushing localStorage to disk, so a SIGKILL loses the
+// write. Native prefs flush immediately and survive the kill. (The picked photo
+// itself can't survive process death — it must be re-picked.)
+export const RESUME_KEY = 'grest:resumeProfileEdit'
+
+const readResume = async () => {
+  try {
+    const { value } = await Preferences.get({ key: RESUME_KEY })
+    return value ? JSON.parse(value) : null
+  } catch {
+    return null
+  }
+}
+const writeResume = (draft) =>
+  Preferences.set({ key: RESUME_KEY, value: JSON.stringify(draft) })
+const clearEditResume = () => Preferences.remove({ key: RESUME_KEY })
 
 // Edit profile — PUT /user/update-profile (multipart). Sends only the fields
 // that changed (name/companyName, email) plus an optional new photo, then
@@ -30,6 +57,20 @@ export default function ProfileEdit() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef(null)
+
+  // If we got here via a resume (App.jsx redirect after a process kill), restore
+  // the in-progress field edits. No-op on a normal entry (no resume record).
+  useEffect(() => {
+    let alive = true
+    readResume().then((draft) => {
+      if (!alive || !draft) return
+      if (draft.name != null) setName(draft.name)
+      if (draft.email != null) setEmail(draft.email)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const initials =
     (initialName || 'Grest user')
@@ -55,23 +96,26 @@ export default function ProfileEdit() {
     applyPhoto(file, URL.createObjectURL(file))
   }
 
-  // Native (Capacitor): use @capacitor/camera. The HTML file-input + `capture`
-  // path triggers MIUI's WebView to reload the page on return from the OS camera
-  // (WebView is killed on this low-RAM device), which cold-restarts the app and
-  // bounces the user to the start screen. The plugin routes the camera/gallery
-  // through Capacitor's own activity-result handling, so the WebView survives.
+  // Native (Capacitor): use @capacitor/camera. On this low-RAM device Android's
+  // LMK can kill the whole app while the camera/gallery is foregrounded; arm the
+  // resume flag first so a kill returns the user here (App.jsx) instead of home.
+  // Default source is the gallery Photo Picker (CameraSource.Photos) — a light
+  // system component that rarely triggers LMK, unlike the full camera app.
   const onChangePhoto = async () => {
     if (!Capacitor.isNativePlatform()) {
       fileRef.current?.click()
       return
     }
     setError('')
+    // Persist a resume record to NATIVE storage BEFORE opening the picker, so if
+    // the OS kills us we come back here (App.jsx) with the fields intact.
+    await writeResume({ name, email })
     try {
       const photo = await Camera.getPhoto({
         quality: 80,
         allowEditing: false,
         resultType: CameraResultType.Uri,
-        source: CameraSource.Prompt, // let the user choose camera or gallery
+        source: CameraSource.Photos, // gallery picker — memory-safe on low-RAM devices
         width: 512,
         height: 512,
         correctOrientation: true,
@@ -108,6 +152,7 @@ export default function ProfileEdit() {
 
     // Nothing changed — just go back.
     if ([...fd.keys()].length === 0) {
+      clearEditResume()
       navigate(ROUTES.profile)
       return
     }
@@ -116,6 +161,7 @@ export default function ProfileEdit() {
     try {
       const { user: updated } = await updateProfile(fd)
       setUser(updated)
+      clearEditResume()
       navigate(ROUTES.profile)
     } catch (err) {
       setError(err.message || 'Could not save changes. Try again.')
@@ -125,13 +171,10 @@ export default function ProfileEdit() {
   }
 
   return (
-    <PhoneFrame
-      bg=""
-      style={{ backgroundImage: 'linear-gradient(to bottom, #fbe2e9 0%, #ffffff 42%, #fcf3ed 100%)' }}
-    >
+    <PhoneFrame bg="bg-screen-grad">
       <div className="flex flex-1 flex-col justify-between px-6 pb-8 pt-2 font-spline">
         <div className="flex flex-col gap-5">
-          <BackButton to={ROUTES.profile} />
+          <BackButton to={ROUTES.profile} onClick={clearEditResume} />
 
           <h1 className="text-h1 font-bold text-ink">Edit profile</h1>
 

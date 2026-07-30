@@ -22,8 +22,7 @@ export default function Home() {
   return (
     <PhoneFrame
       scroll={false}
-      bg=""
-      style={{ backgroundImage: 'linear-gradient(to bottom, #fbe2e9 0%, #fcf3ed 100%)' }}
+      bg="bg-screen-grad"
       overlay={<MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} />}
     >
       <div

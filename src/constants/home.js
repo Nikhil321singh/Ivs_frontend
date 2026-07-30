@@ -5,7 +5,7 @@ export const ACTIONS = [
   { key: 'theft', label: 'Theft Verification', icon: 'ic-theft', route: ROUTES.imeiEnter },
   { key: 'diagnose', label: 'Diagnose', icon: 'ic-diagnose', route: ROUTES.diagnose },
   { key: 'payment', label: 'Payment', icon: 'ic-payment', route: ROUTES.aadhaar },
-  { key: 'price', label: 'Check Device Price', icon: 'ic-price', route: null },
+  { key: 'price', label: 'Check Device Price', icon: 'ic-price', route: ROUTES.tradeIn },
 ]
 
 export const SERVICES = [
@@ -26,9 +26,9 @@ export const SERVICES = [
   {
     key: 'svc-price',
     title: 'Check your device price',
-    sub: 'Secure, unrecoverable erase',
+    sub: 'Instant trade-in quote',
     icon: 'ic-svc-price',
-    route: null,
+    route: ROUTES.tradeIn,
   },
   {
     key: 'svc-aadhaar',

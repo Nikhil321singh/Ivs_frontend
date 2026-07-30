@@ -8,8 +8,16 @@ export const ROUTES = {
   home: '/home',
   menu: '/menu',
   records: '/records',
+  wallet: '/wallet',
   profile: '/profile',
   profileEdit: '/profile/edit',
+  privacy: '/privacy',
+  help: '/help',
+  // Trade-in / device price
+  tradeIn: '/trade-in',
+  tradeInDetails: '/trade-in/details',
+  tradeInVerify: '/trade-in/verify',
+  tradeInSign: '/trade-in/sign',
   // Theft / IMEI verification (₹20)
   imeiEnter: '/imei',
   payment20: '/imei/pay',

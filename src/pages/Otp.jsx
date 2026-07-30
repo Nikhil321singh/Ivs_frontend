@@ -56,13 +56,7 @@ export default function Otp() {
   }
 
   return (
-    <PhoneFrame
-      style={{
-        backgroundImage:
-          'linear-gradient(to bottom, #fbe2e9 0%, #ffffff 42%, #fdf4ee 95.673%)',
-      }}
-      bg=""
-    >
+    <PhoneFrame bg="bg-screen-grad">
       <div className="flex flex-1 flex-col justify-between px-7 pb-10 pt-2">
         <div className="flex flex-col gap-6.5">
           <BackButton to={ROUTES.login} />

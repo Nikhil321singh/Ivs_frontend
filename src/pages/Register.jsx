@@ -162,13 +162,7 @@ export default function Register() {
   }
 
   return (
-    <PhoneFrame
-      bg=""
-      style={{
-        backgroundImage:
-          'linear-gradient(to bottom, #fbe2e9 0%, #ffffff 42%, #fcf3ed 100%)',
-      }}
-    >
+    <PhoneFrame bg="bg-screen-grad">
       <div className="flex flex-1 flex-col justify-between px-6.5 pb-6 pt-1.5">
         <div className="flex flex-col gap-4">
           <BackButton to={ROUTES.otp} />

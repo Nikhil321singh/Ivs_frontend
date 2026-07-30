@@ -6,9 +6,9 @@ import { toPhone } from '../utils/format'
 const SERVICES = [
   { key: 'theft', label: 'Theft Verification', icon: 'ic-menu-theft', route: ROUTES.imeiEnter },
   { key: 'diagnose', label: 'Diagnose', icon: 'ic-menu-diagnose', route: ROUTES.diagnose },
-  { key: 'free', label: 'Free', icon: 'ic-menu-free', route: null },
+  { key: 'price', label: 'Check Device Price', icon: 'ic-menu-free', route: ROUTES.tradeIn },
   { key: 'payment', label: 'Payment', icon: 'ic-menu-payment', route: ROUTES.aadhaar },
-  { key: 'credits', label: 'Credits', icon: 'ic-menu-payment', route: null },
+  { key: 'credits', label: 'Credits', icon: 'ic-menu-payment', route: ROUTES.wallet },
 ]
 
 // Half-width, full-height side drawer (sidebar) overlaying Home. Figma: Hamburger Menu
@@ -113,7 +113,7 @@ export default function MenuSheet({ open, onClose }) {
           <div className="mt-auto flex flex-col gap-3 pt-4">
             <button
               type="button"
-              onClick={() => {}}
+              onClick={goto(ROUTES.profile)}
               className="flex w-full items-center gap-2.5 rounded-[14px] bg-indigo-subtle px-3.5 py-3 transition duration-150 active:scale-[0.98] active:opacity-80"
             >
               <img src="/assets/icons/ic-menu-delete.svg" alt="" aria-hidden="true" className="h-5 w-5 shrink-0" />
