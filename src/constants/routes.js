@@ -13,6 +13,8 @@ export const ROUTES = {
   profileEdit: '/profile/edit',
   privacy: '/privacy',
   help: '/help',
+  // Not shipping this release — routed to the Coming Soon placeholder
+  comingSoon: '/coming-soon',
   // Trade-in / device price
   tradeIn: '/trade-in',
   tradeInDetails: '/trade-in/details',

@@ -40,6 +40,10 @@ export default function Wallet() {
 
   const busy = payStatus !== 'idle'
 
+  // Recent activity = token movements only. Exclude Razorpay top-up/payment
+  // entries (reason TOPUP) so the list shows how tokens were spent/earned.
+  const tokenTxns = txns.filter((t) => t.reason !== 'TOPUP')
+
   const topup = async () => {
     if (busy) return
     setError('')
@@ -122,7 +126,7 @@ export default function Wallet() {
           <span className="text-[34px] font-bold leading-none">
             {loading ? '—' : (wallet?.balance ?? 0)}
           </span>
-          <span className="text-[12px] font-normal text-white/70">1 token = ₹1 · IMEI ₹20 · Diagnose ₹50</span>
+          <span className="text-[12px] font-normal text-white/70">1 token = ₹1</span>
         </div>
 
         {/* top-up */}
@@ -143,6 +147,21 @@ export default function Wallet() {
             ))}
           </div>
 
+          {/* custom amount */}
+          <div className="flex items-center gap-1.5 rounded-[12px] border-[1.5px] border-line bg-white px-3.5 py-3 focus-within:border-primary">
+            <span className="text-[16px] font-semibold text-ink">₹</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="1"
+              value={amount || ''}
+              onChange={(e) => setAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+              placeholder="Enter amount"
+              className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-ink outline-none placeholder:font-normal placeholder:text-muted"
+            />
+            {amount > 0 && <span className="shrink-0 text-[12px] font-normal text-muted">{amount} tokens</span>}
+          </div>
+
           {error && (
             <p role="alert" className="rounded-[10px] bg-danger-subtle px-3.5 py-2.5 text-[13px] font-medium text-primary">
               {error}
@@ -154,20 +173,20 @@ export default function Wallet() {
             </p>
           )}
 
-          <PrimaryButton onClick={topup} disabled={busy}>
+          <PrimaryButton onClick={topup} disabled={busy || amount < 1}>
             {payLabel}
           </PrimaryButton>
         </div>
 
-        {/* recent ledger */}
+        {/* recent ledger — token activity only (top-up/payment entries excluded) */}
         <div className="flex flex-col gap-2.5">
           <h2 className="text-[15px] font-semibold text-ink">Recent activity</h2>
           {loading ? (
             <p className="text-[13px] font-normal text-muted">Loading…</p>
-          ) : txns.length === 0 ? (
-            <p className="text-[13px] font-normal text-muted">No transactions yet.</p>
+          ) : tokenTxns.length === 0 ? (
+            <p className="text-[13px] font-normal text-muted">No token activity yet.</p>
           ) : (
-            txns.map((t) => {
+            tokenTxns.map((t) => {
               const m = txnMeta(t)
               return (
                 <div

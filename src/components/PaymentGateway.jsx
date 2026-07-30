@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import PhoneFrame from './PhoneFrame'
 import BackButton from './BackButton'
-import { PrimaryButton } from './Button'
+import { PrimaryButton, OutlineButton } from './Button'
 import { useAuth } from '../context/AuthContext'
-import { createTopupOrder, verifyTopup } from '../api/wallet'
+import { createTopupOrder, verifyTopup, getWallet } from '../api/wallet'
 import { openCheckout } from '../lib/razorpay'
 
 // Token top-up via Razorpay, per the backend contract:
@@ -16,13 +16,61 @@ import { openCheckout } from '../lib/razorpay'
 // succeeds but whose /verify call fails (network drop): money left the customer,
 // so we DON'T show a hard error — the Razorpay webhook credits it regardless, and
 // we tell the user that.
-export default function PaymentGateway({ amount, payee, description, backTo, onPaid }) {
+// `chargeTokens`: optional async fn that runs the actual paid feature server-side
+// (e.g. POST /ivs/verify), which debits the token wallet and returns the result
+// (incl. the new balance). Wiring it is what makes the balance actually update.
+export default function PaymentGateway({ amount, payee, description, backTo, onPaid, chargeTokens }) {
   const { user } = useAuth()
   const [status, setStatus] = useState('idle') // idle | ordering | checkout | verifying
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [wallet, setWallet] = useState(null)
 
   const busy = status !== 'idle'
+
+  // Load token balance so "Pay with tokens" can be offered / gated.
+  useEffect(() => {
+    let alive = true
+    getWallet()
+      .then((w) => alive && setWallet(w.wallet))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const balance = wallet?.balance ?? 0
+
+  // Pay using existing token balance: run the feature, which debits tokens
+  // server-side and returns the fresh balance.
+  const payWithTokens = async () => {
+    if (busy) return
+    setError('')
+    setNotice('')
+    if (balance < amount) {
+      setError(
+        `Not enough tokens — you have ${balance}, this needs ${amount}. Top up in Credits or pay via Razorpay.`
+      )
+      return
+    }
+    if (!chargeTokens) {
+      onPaid?.({ balance: balance - amount, method: 'tokens' })
+      return
+    }
+    setStatus('charging')
+    try {
+      const result = await chargeTokens()
+      setStatus('idle')
+      onPaid?.({ ...result, method: 'tokens' })
+    } catch (err) {
+      setStatus('idle')
+      setError(
+        err?.status === 402
+          ? `Not enough tokens for this. Top up in Credits or pay via Razorpay.`
+          : err?.message || 'Could not complete. Please try again.'
+      )
+    }
+  }
 
   const pay = async () => {
     if (busy) return
@@ -77,8 +125,17 @@ export default function PaymentGateway({ amount, payee, description, backTo, onP
         paymentId: handles.paymentId,
         signature: handles.signature,
       })
-      setStatus('idle')
-      onPaid?.({ balance, orderId: order.orderId })
+      // Tokens are now credited — run the actual feature, which debits them back
+      // and returns the result. Net token change is zero (₹20 → 20 tokens → spent).
+      if (chargeTokens) {
+        setStatus('charging')
+        const result = await chargeTokens()
+        setStatus('idle')
+        onPaid?.({ ...result, orderId: order.orderId, method: 'razorpay' })
+      } else {
+        setStatus('idle')
+        onPaid?.({ balance, orderId: order.orderId })
+      }
     } catch (err) {
       setStatus('idle')
       // Payment already went through at Razorpay; the webhook will credit it.
@@ -100,6 +157,8 @@ export default function PaymentGateway({ amount, payee, description, backTo, onP
       ? 'Waiting for payment…'
       : status === 'verifying'
       ? 'Confirming…'
+      : status === 'charging'
+      ? 'Running check…'
       : `Pay ₹${amount}`
 
   return (
@@ -144,11 +203,16 @@ export default function PaymentGateway({ amount, payee, description, backTo, onP
         </div>
 
         <div className="flex flex-col gap-3">
-          <PrimaryButton onClick={pay} disabled={busy}>
-            {label}
+          {/* Option 1 — pay from the token wallet */}
+          <PrimaryButton onClick={payWithTokens} disabled={busy}>
+            Pay with tokens · {amount} tokens
           </PrimaryButton>
+          {/* Option 2 — pay ₹ directly via Razorpay */}
+          <OutlineButton onClick={pay}>
+            {status === 'idle' ? `Pay ₹${amount} · Razorpay` : label}
+          </OutlineButton>
           <p className="text-center text-[12px] font-normal text-muted">
-            Secured by Razorpay · 256-bit encrypted
+            {wallet ? `Token balance: ${balance} · ` : ''}Secured by Razorpay · 256-bit encrypted
           </p>
         </div>
       </div>

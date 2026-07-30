@@ -3,11 +3,12 @@ import { ROUTES } from '../constants/routes'
 import { useAuth } from '../context/AuthContext'
 import { toPhone } from '../utils/format'
 
+// `soon` = feature not shipping this release → routes to the Coming Soon placeholder.
 const SERVICES = [
   { key: 'theft', label: 'Theft Verification', icon: 'ic-menu-theft', route: ROUTES.imeiEnter },
-  { key: 'diagnose', label: 'Diagnose', icon: 'ic-menu-diagnose', route: ROUTES.diagnose },
-  { key: 'price', label: 'Check Device Price', icon: 'ic-menu-free', route: ROUTES.tradeIn },
-  { key: 'payment', label: 'Payment', icon: 'ic-menu-payment', route: ROUTES.aadhaar },
+  { key: 'diagnose', label: 'Diagnose', icon: 'ic-menu-diagnose', route: ROUTES.comingSoon, soon: 'Diagnose' },
+  { key: 'price', label: 'Check Device Price', icon: 'ic-menu-free', route: ROUTES.comingSoon, soon: 'Check your device' },
+  { key: 'payment', label: 'Payment', icon: 'ic-menu-payment', route: ROUTES.comingSoon, soon: 'Payment' },
   { key: 'credits', label: 'Credits', icon: 'ic-menu-payment', route: ROUTES.wallet },
 ]
 
@@ -16,9 +17,9 @@ const SERVICES = [
 export default function MenuSheet({ open, onClose }) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const goto = (route) => () => {
+  const goto = (route, feature) => () => {
     onClose()
-    if (route) navigate(route)
+    if (route) navigate(route, { state: { feature } })
   }
   const onLogout = async () => {
     onClose()
@@ -54,7 +55,7 @@ export default function MenuSheet({ open, onClose }) {
         className={`absolute inset-y-0 left-0 flex w-1/2 min-w-[248px] flex-col rounded-r-[24px] shadow-sheet transition-transform duration-300 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ backgroundImage: 'linear-gradient(to bottom, #fbe2e9 0%, #fcf3ed 100%)' }}
+        style={{ backgroundImage: 'linear-gradient(169.36deg, #EFEDEE 9.82%, #FFFFFF 144.89%)' }}
       >
         {/* single scroll region: the menu scrolls internally; overscroll-contain keeps it
             from chaining to the frozen Home behind it */}
@@ -95,7 +96,7 @@ export default function MenuSheet({ open, onClose }) {
               <button
                 key={s.key}
                 type="button"
-                onClick={goto(s.route)}
+                onClick={goto(s.route, s.soon)}
                 className="flex w-full items-center gap-2.5 rounded-[14px] border-[1.5px] border-line bg-white p-3 text-left transition duration-150 active:scale-[0.98] active:bg-field"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-indigo-subtle">

@@ -28,6 +28,7 @@ import TradeInQuote from './pages/TradeInQuote'
 import CustomerDetail from './pages/CustomerDetail'
 import Verifications from './pages/Verifications'
 import SignSell from './pages/SignSell'
+import ComingSoon from './pages/ComingSoon'
 
 // If the app was killed while the ProfileEdit screen had the OS camera/gallery
 // open (common on low-RAM devices — see ProfileEdit), it cold-starts back at the
@@ -131,6 +132,8 @@ export default function App() {
       <Route path={ROUTES.aadhaarOtp} element={<RequireAuth><AadhaarOtp /></RequireAuth>} />
       {/* Wallet / Credits */}
       <Route path={ROUTES.wallet} element={<RequireAuth><Wallet /></RequireAuth>} />
+      {/* Coming soon (Diagnose / Payment / Check Device Price — not in this release) */}
+      <Route path={ROUTES.comingSoon} element={<RequireAuth><ComingSoon /></RequireAuth>} />
       {/* Profile sub-pages */}
       <Route path={ROUTES.privacy} element={<RequireAuth><Privacy /></RequireAuth>} />
       <Route path={ROUTES.help} element={<RequireAuth><Help /></RequireAuth>} />

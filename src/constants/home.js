@@ -1,11 +1,14 @@
 import { ROUTES } from './routes'
 
-// Mock content for the Home dashboard. `route: null` = no screen in scope (placeholder).
+// Mock content for the Home dashboard.
+// `soon` = feature not shipping this release → routes to the Coming Soon placeholder,
+// where `soon` is shown as the card label.
+// Grid order matches Figma Home 7654:1983: Theft, Check Device Price / Payment, Diagnose.
 export const ACTIONS = [
   { key: 'theft', label: 'Theft Verification', icon: 'ic-theft', route: ROUTES.imeiEnter },
-  { key: 'diagnose', label: 'Diagnose', icon: 'ic-diagnose', route: ROUTES.diagnose },
-  { key: 'payment', label: 'Payment', icon: 'ic-payment', route: ROUTES.aadhaar },
-  { key: 'price', label: 'Check Device Price', icon: 'ic-price', route: ROUTES.tradeIn },
+  { key: 'price', label: 'Check Device Price', icon: 'ic-price', route: ROUTES.comingSoon, soon: 'Check your device' },
+  { key: 'payment', label: 'Payment', icon: 'ic-payment', route: ROUTES.comingSoon, soon: 'Payment' },
+  { key: 'diagnose', label: 'Diagnose', icon: 'ic-diagnose', route: ROUTES.comingSoon, soon: 'Diagnose' },
 ]
 
 export const SERVICES = [
@@ -21,20 +24,23 @@ export const SERVICES = [
     title: 'What is full diagnosis',
     sub: '₹50 · complete hardware report',
     icon: 'ic-svc-diagnosis',
-    route: ROUTES.diagnose,
+    route: ROUTES.comingSoon,
+    soon: 'Diagnose',
   },
   {
     key: 'svc-price',
     title: 'Check your device price',
-    sub: 'Instant trade-in quote',
+    sub: 'Secure, unrecoverable erase',
     icon: 'ic-svc-price',
-    route: ROUTES.tradeIn,
+    route: ROUTES.comingSoon,
+    soon: 'Check your device',
   },
   {
     key: 'svc-aadhaar',
     title: 'Aadhaar + IMEI',
     sub: '₹5 · identity-linked record',
     icon: 'ic-svc-aadhaar',
-    route: ROUTES.aadhaar,
+    route: ROUTES.comingSoon,
+    soon: 'Payment',
   },
 ]

@@ -70,7 +70,8 @@ export default {
         phone: '480px',
       },
       backgroundImage: {
-        'screen-grad': 'linear-gradient(180deg, #FBE2E9 0%, #FFFFFF 42%, #FCF3ED 100%)',
+        // App-wide background: neutral grey -> white (used by every screen + sidebar)
+        'screen-grad': 'linear-gradient(169.36deg, #EFEDEE 9.82%, #FFFFFF 144.89%)',
         // Login screen: warm cream -> pink (exact stops from Figma 7649:1979)
         'login-grad':
           'linear-gradient(to bottom, #fdf6f1 5.569%, #fdf1f4 30.552%, #fbe5eb 44.334%)',

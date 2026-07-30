@@ -15,7 +15,8 @@ export default function Home() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
-  const go = (route) => () => (route ? navigate(route) : undefined)
+  const go = (item) => () =>
+    item.route ? navigate(item.route, { state: { feature: item.soon } }) : undefined
 
   const firstName = (user?.name || user?.companyName || '').split(' ')[0]
 
@@ -65,12 +66,12 @@ export default function Home() {
         <div className="flex flex-col gap-2">
           <div className="flex gap-4">
             {ACTIONS.slice(0, 2).map((a) => (
-              <ActionCard key={a.key} icon={a.icon} label={a.label} onClick={go(a.route)} />
+              <ActionCard key={a.key} icon={a.icon} label={a.label} onClick={go(a)} soon={!!a.soon} />
             ))}
           </div>
           <div className="flex gap-4">
             {ACTIONS.slice(2, 4).map((a) => (
-              <ActionCard key={a.key} icon={a.icon} label={a.label} onClick={go(a.route)} />
+              <ActionCard key={a.key} icon={a.icon} label={a.label} onClick={go(a)} soon={!!a.soon} />
             ))}
           </div>
         </div>
@@ -80,7 +81,7 @@ export default function Home() {
         {/* services list */}
         <div className="flex flex-col gap-2.5">
           {SERVICES.map((s) => (
-            <ServiceRow key={s.key} icon={s.icon} title={s.title} sub={s.sub} onClick={go(s.route)} />
+            <ServiceRow key={s.key} icon={s.icon} title={s.title} sub={s.sub} onClick={go(s)} />
           ))}
         </div>
       </div>
