@@ -58,7 +58,12 @@ export default function ImeiEnter() {
 
   const submit = () =>
     navigate(ROUTES.payment20, {
-      state: { imei: imei1, imei2: imei2 || undefined, deviceModel: deviceDetail || undefined },
+      state: {
+        imei: imei1,
+        imei2: imei2 || undefined,
+        deviceModel: deviceDetail || undefined,
+        customerName: customerName || undefined,
+      },
     })
 
   return (

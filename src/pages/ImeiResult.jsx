@@ -5,19 +5,47 @@ import BackButton from '../components/BackButton'
 import { PrimaryButton } from '../components/Button'
 import { ROUTES } from '../constants/routes'
 import { verifyImei } from '../api/ivs'
+import { downloadReport, downloadCertificate } from '../lib/pdf'
 
-// Figma: "IMEI Result" (§6.3). Calls the real POST /ivs/verify on mount with the
-// IMEI carried from the Enter screen, then renders Clean / Blocked / Couldn't-
-// verify from the CEIR status. Group the 15 digits 2-6-6-1 for display.
+// Figma: "IMEI Result" (§6.3). The CEIR check + token debit happen in the payment
+// step, which passes its result here in nav state (`verify`). If we land here
+// without one (e.g. direct nav), we fall back to calling /ivs/verify once.
 const GROUP = (s) =>
   s.replace(/\D/g, '').replace(/(.{2})(.{6})(.{6})(.{1}).*/, '$1 $2 $3 $4').trim()
 
-// Map CEIR status → display variant.
 const VARIANTS = {
   CLEAN: { tone: 'success', title: 'Clean', sub: 'Not blacklisted · safe to trade' },
   BLOCKED: { tone: 'danger', title: 'Blocked', sub: 'Reported blocked · do not trade' },
   STOLEN: { tone: 'danger', title: 'Stolen', sub: 'Reported stolen · do not trade' },
   UNKNOWN: { tone: 'muted', title: "Couldn't verify", sub: 'CEIR did not return a result — retry is free' },
+}
+
+// Indigo download card (Figma) — document icon + title + subtitle.
+function DownloadCard({ title, sub, onClick, busy }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="flex items-center gap-3.5 rounded-[16px] bg-indigo-subtle px-3.5 py-3.5 text-left transition active:scale-[0.98] disabled:opacity-60"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-white">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"
+            stroke="#2E2F81"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path d="M14 3v5h5" stroke="#2E2F81" strokeWidth="1.8" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[15px] font-bold text-secondary">{title}</span>
+        <span className="text-[12px] font-normal text-muted">{busy ? 'Preparing…' : sub}</span>
+      </span>
+    </button>
+  )
 }
 
 export default function ImeiResult() {
@@ -26,17 +54,17 @@ export default function ImeiResult() {
   const imei = state?.imei || ''
   const imei2 = state?.imei2
   const deviceModel = state?.deviceModel
+  const customerName = state?.customerName
+  const passed = state?.verify
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(!passed && !!imei)
+  const [error, setError] = useState(!passed && !imei ? 'No IMEI to verify.' : '')
+  const [data, setData] = useState(passed || null)
+  const [pdfBusy, setPdfBusy] = useState('') // '' | 'report' | 'certificate'
+  const [pdfError, setPdfError] = useState('')
 
   useEffect(() => {
-    if (!imei) {
-      setError('No IMEI to verify.')
-      setLoading(false)
-      return
-    }
+    if (passed || !imei) return // result already came from the payment step
     let alive = true
     verifyImei({ imei1: imei, imei2, deviceModel })
       .then((res) => alive && setData(res))
@@ -45,22 +73,41 @@ export default function ImeiResult() {
     return () => {
       alive = false
     }
-  }, [imei, imei2, deviceModel])
+  }, [passed, imei, imei2, deviceModel])
 
   const status = data?.imei1Status || 'UNKNOWN'
   const variant = VARIANTS[status] || VARIANTS.UNKNOWN
   const danger = variant.tone === 'danger'
 
+  const runPdf = (kind, fn) => async () => {
+    if (pdfBusy) return
+    setPdfError('')
+    setPdfBusy(kind)
+    try {
+      await fn({ verify: data || {}, imei1: imei, imei2, deviceModel, customerName })
+    } catch (err) {
+      if (err?.message !== 'Share canceled') setPdfError('Could not create the PDF. Please try again.')
+    } finally {
+      setPdfBusy('')
+    }
+  }
+
   const rows = [
     { label: 'IMEI', value: GROUP(imei) },
     { label: 'Reference', value: data?.referenceId || '—' },
-    { label: 'Checked', value: new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) },
+    {
+      label: 'Checked',
+      value: new Date(data?.verifiedAt || Date.now()).toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    },
   ]
 
   return (
     <PhoneFrame bg="bg-screen-grad">
-      <div className="flex flex-1 flex-col justify-between px-6 pb-8 pt-2 font-spline">
-        <div className="flex flex-col gap-6">
+      <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-8 pt-2 font-spline">
+        <div className="flex flex-1 flex-col gap-6">
           <BackButton to={ROUTES.imeiEnter} />
 
           {loading ? (
@@ -133,12 +180,31 @@ export default function ImeiResult() {
                   </span>
                 </div>
               </div>
+
+              {/* downloads */}
+              <div className="flex flex-col gap-2.5">
+                <DownloadCard
+                  title="Download report (PDF)"
+                  sub="Full CEIR details · shareable"
+                  onClick={runPdf('report', downloadReport)}
+                  busy={pdfBusy === 'report'}
+                />
+                <DownloadCard
+                  title="Download Certificate (PDF)"
+                  sub="Verification certificate · shareable"
+                  onClick={runPdf('certificate', downloadCertificate)}
+                  busy={pdfBusy === 'certificate'}
+                />
+                {pdfError && <p className="text-[12px] font-medium text-primary">{pdfError}</p>}
+              </div>
             </>
           )}
         </div>
 
         {!loading && (
-          <PrimaryButton onClick={() => navigate(ROUTES.home)}>Back to Home</PrimaryButton>
+          <PrimaryButton className="mt-6" onClick={() => navigate(ROUTES.home)}>
+            Back to Home
+          </PrimaryButton>
         )}
       </div>
     </PhoneFrame>
