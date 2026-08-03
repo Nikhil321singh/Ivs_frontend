@@ -1,13 +1,15 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
+import AadhaarVerify from '../components/AadhaarVerify'
 import { ROUTES } from '../constants/routes'
 import { scanImei } from '../lib/scanner'
 
 // Figma "IMEI Verification" (node 7683:2006). A short intake form — customer
-// name, Aadhaar pic, device detail and up to two IMEIs — each IMEI scannable
-// with the in-field camera. CTA enables once IMEI No. 1 is a full 15 digits.
+// name, Aadhaar (verified via OTP, same flow as account creation), device detail
+// and up to two IMEIs — each IMEI scannable with the in-field camera. CTA enables
+// once IMEI No. 1 is a full 15 digits and the customer's Aadhaar is verified.
 const IMEI_LENGTH = 15
 
 // 15-digit field label (Figma: Spline Sans Medium 12 / #6b7280).
@@ -21,10 +23,9 @@ const BOX =
 
 export default function ImeiEnter() {
   const navigate = useNavigate()
-  const aadhaarRef = useRef(null)
 
   const [customerName, setCustomerName] = useState('')
-  const [aadhaarPic, setAadhaarPic] = useState('')
+  const [aadhaar, setAadhaar] = useState('') // set once the customer's Aadhaar is OTP-verified
   const [deviceDetail, setDeviceDetail] = useState('')
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
@@ -33,7 +34,7 @@ export default function ImeiEnter() {
   const onImei = (set) => (e) =>
     set(e.target.value.replace(/\D/g, '').slice(0, IMEI_LENGTH))
 
-  const complete = imei1.length === IMEI_LENGTH
+  const complete = imei1.length === IMEI_LENGTH && !!aadhaar
 
   const onScan = async (set) => {
     setScanError('')
@@ -51,11 +52,6 @@ export default function ImeiEnter() {
     }
   }
 
-  const onAadhaar = (e) => {
-    const file = e.target.files?.[0]
-    if (file) setAadhaarPic(file.name)
-  }
-
   const submit = () =>
     navigate(ROUTES.payment20, {
       state: {
@@ -63,6 +59,7 @@ export default function ImeiEnter() {
         imei2: imei2 || undefined,
         deviceModel: deviceDetail || undefined,
         customerName: customerName || undefined,
+        aadhaar: aadhaar || undefined,
       },
     })
 
@@ -99,26 +96,9 @@ export default function ImeiEnter() {
               />
             </div>
 
-            {/* Aadhaar pic upload */}
-            <div className="flex flex-col gap-[6px]">
-              <FieldLabel>Aadhaar No.</FieldLabel>
-              <button
-                type="button"
-                onClick={() => aadhaarRef.current?.click()}
-                className={`${BOX} justify-start text-left text-[14px] font-medium ${
-                  aadhaarPic ? 'text-ink' : 'text-muted'
-                }`}
-              >
-                <span className="truncate">{aadhaarPic || 'Upload Aadhaar Pic'}</span>
-              </button>
-              <input
-                ref={aadhaarRef}
-                type="file"
-                accept="image/*"
-                onChange={onAadhaar}
-                className="hidden"
-              />
-            </div>
+            {/* Aadhaar — OTP verification, same flow as account creation. Pay
+                stays locked until the customer's Aadhaar is verified. */}
+            <AadhaarVerify onVerified={setAadhaar} />
 
             {/* Device detail */}
             <div className="flex flex-col gap-[6px]">
@@ -150,6 +130,21 @@ export default function ImeiEnter() {
             {scanError && (
               <p className="text-[12px] font-medium text-primary">{scanError}</p>
             )}
+
+            {/* Re-check disclaimer — the verification is only as accurate as the
+                IMEI submitted, so nudge the user to confirm every digit. */}
+            <div className="mt-[4px] flex items-start gap-[8px] rounded-[11px] border-[1.5px] border-warning/25 bg-warning-subtle px-[12px] py-[10px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-[1px] shrink-0">
+                <path d="M12 3l9 16H3l9-16z" stroke="#B26B00" strokeWidth="1.8" strokeLinejoin="round" />
+                <path d="M12 10v4" stroke="#B26B00" strokeWidth="1.8" strokeLinecap="round" />
+                <circle cx="12" cy="17" r="1" fill="#B26B00" />
+              </svg>
+              <p className="text-[12px] font-medium leading-[1.5] text-warning">
+                Double-check the IMEI. Re-scan or re-read every digit and confirm it
+                matches the number on the device (dial <span className="font-semibold">*#06#</span>) before
+                you pay — the result is only as accurate as the IMEI you enter.
+              </p>
+            </div>
           </div>
         </div>
 

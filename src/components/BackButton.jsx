@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+import { goBack } from '../lib/back'
 
-// 24px chevron-left with a 44px tap target (a11y). Defaults to browser-back;
-// pass `to` for an explicit route.
+// 24px chevron-left with a 44px tap target (a11y). Defaults to a safe browser-back
+// (steps back if there's history, else falls Home so it never strands the user on
+// the Splash catch-all); pass `to` for an explicit route.
 export default function BackButton({ to, className = '', onClick }) {
   const navigate = useNavigate()
   return (
@@ -10,7 +12,7 @@ export default function BackButton({ to, className = '', onClick }) {
       aria-label="Back"
       onClick={() => {
         onClick?.()
-        to ? navigate(to) : navigate(-1)
+        goBack(navigate, to)
       }}
       className={`-m-2.5 flex h-11 w-11 items-center justify-center p-2.5 ${className}`}
     >

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import InAppCamera from '../components/InAppCamera'
 import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
 import Field from '../components/Field'
@@ -49,6 +50,7 @@ export default function Register() {
   const [gst, setGst] = useState('')
   const [photo, setPhoto] = useState(null)
   const [photoFile, setPhotoFile] = useState(null)
+  const [showCamera, setShowCamera] = useState(false)
   const fileRef = useRef(null)
 
   // Aadhaar OTP sub-flow: idle → sent → verified.
@@ -87,12 +89,34 @@ export default function Register() {
     setError('')
   }
 
+  // Web fallback (desktop browser dev): plain <input type="file">.
   const onPickPhoto = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (photo) URL.revokeObjectURL(photo)
     setPhotoFile(file)
     setPhoto(URL.createObjectURL(file))
+  }
+
+  // Live photo capture. We use an in-app camera (InAppCamera / getUserMedia) rather
+  // than the native OS camera activity: on this low-memory Redmi MIUI kills — and
+  // refuses to restart — the app whenever it's backgrounded for the native camera
+  // ("the camera crashes the app"). Staying in-app keeps the process foregrounded.
+  // Falls back to a file input only where getUserMedia is unavailable.
+  const onChangePhoto = () => {
+    setError('')
+    if (navigator.mediaDevices?.getUserMedia) {
+      setShowCamera(true)
+    } else {
+      fileRef.current?.click()
+    }
+  }
+
+  const onCapture = (file, previewUrl) => {
+    if (photo) URL.revokeObjectURL(photo)
+    setPhotoFile(file)
+    setPhoto(previewUrl)
+    setShowCamera(false)
   }
 
   const onSendAadhaarOtp = async () => {
@@ -163,6 +187,9 @@ export default function Register() {
 
   return (
     <PhoneFrame bg="bg-screen-grad">
+      {showCamera && (
+        <InAppCamera onCapture={onCapture} onCancel={() => setShowCamera(false)} />
+      )}
       <div className="flex flex-1 flex-col justify-between px-6.5 pb-6 pt-1.5">
         <div className="flex flex-col gap-4">
           <BackButton to={ROUTES.otp} />
@@ -195,14 +222,13 @@ export default function Register() {
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 onChange={onPickPhoto}
                 className="hidden"
               />
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => fileRef.current?.click()}
+                  onClick={onChangePhoto}
                   className="flex items-center gap-[15px] self-start rounded-[8px] border-[1.5px] border-line bg-white px-2.5 py-[7px] active:bg-field"
                 >
                   <span className="text-[12px] font-medium text-ink">Camera</span>

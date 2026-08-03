@@ -4,6 +4,7 @@ import { Preferences } from '@capacitor/preferences'
 import { ROUTES } from './constants/routes'
 import { useAuth } from './context/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import AndroidBackButton from './components/AndroidBackButton'
 import Splash from './pages/Splash'
 import Login from './pages/Login'
 import Otp from './pages/Otp'
@@ -70,6 +71,7 @@ export default function App() {
   const location = useLocation()
   return (
     <>
+    <AndroidBackButton />
     <ResumeGuard />
     {/* Inner boundary keyed on the route: a crash on one screen shows the
         fallback but clears itself once the user navigates elsewhere. */}

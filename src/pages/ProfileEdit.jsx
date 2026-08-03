@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Capacitor } from '@capacitor/core'
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
+import InAppCamera from '../components/InAppCamera'
 import { Preferences } from '@capacitor/preferences'
 import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
@@ -34,8 +33,6 @@ const readResume = async () => {
     return null
   }
 }
-const writeResume = (draft) =>
-  Preferences.set({ key: RESUME_KEY, value: JSON.stringify(draft) })
 const clearEditResume = () => Preferences.remove({ key: RESUME_KEY })
 
 // Edit profile — PUT /user/update-profile (multipart). Sends only the fields
@@ -54,6 +51,7 @@ export default function ProfileEdit() {
   const [email, setEmail] = useState(initialEmail)
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(user?.profileImage || null)
+  const [showCamera, setShowCamera] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef(null)
@@ -96,47 +94,23 @@ export default function ProfileEdit() {
     applyPhoto(file, URL.createObjectURL(file))
   }
 
-  // Native (Capacitor): use @capacitor/camera. On this low-RAM device Android's
-  // LMK can kill the whole app while the camera/gallery is foregrounded; arm the
-  // resume flag first so a kill returns the user here (App.jsx) instead of home.
-  // Default source is the gallery Photo Picker (CameraSource.Photos) — a light
-  // system component that rarely triggers LMK, unlike the full camera app.
-  const onChangePhoto = async () => {
-    if (!Capacitor.isNativePlatform()) {
-      fileRef.current?.click()
-      return
-    }
+  // Live capture via the in-app camera (InAppCamera / getUserMedia) rather than the
+  // native OS camera activity: on this low-memory Redmi MIUI kills — and won't
+  // restart — the app when it's backgrounded for the native camera. Staying in-app
+  // keeps the process foregrounded so it survives. File input is the no-camera
+  // fallback (desktop dev).
+  const onChangePhoto = () => {
     setError('')
-    // Persist a resume record to NATIVE storage BEFORE opening the picker, so if
-    // the OS kills us we come back here (App.jsx) with the fields intact.
-    await writeResume({ name, email })
-    try {
-      const photo = await Camera.getPhoto({
-        quality: 80,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Photos, // gallery picker — memory-safe on low-RAM devices
-        width: 512,
-        height: 512,
-        correctOrientation: true,
-        promptLabelHeader: 'Profile photo',
-        promptLabelPhoto: 'Choose from gallery',
-        promptLabelPicture: 'Take photo',
-      })
-      if (!photo?.webPath) return
-      const blob = await (await fetch(photo.webPath)).blob()
-      const ext = photo.format || 'jpeg'
-      const file = new File([blob], `profile.${ext}`, {
-        type: blob.type || `image/${ext}`,
-      })
-      applyPhoto(file, photo.webPath) // webPath is WebView-safe to render
-    } catch (err) {
-      // Plugin throws "User cancelled photos app" on cancel — ignore that.
-      const msg = err?.message || ''
-      if (!/cancel/i.test(msg)) {
-        setError('Could not open the camera. Check camera permission and try again.')
-      }
+    if (navigator.mediaDevices?.getUserMedia) {
+      setShowCamera(true)
+    } else {
+      fileRef.current?.click()
     }
+  }
+
+  const onCapture = (file, previewUrl) => {
+    applyPhoto(file, previewUrl)
+    setShowCamera(false)
   }
 
   const onSave = async () => {
@@ -172,6 +146,9 @@ export default function ProfileEdit() {
 
   return (
     <PhoneFrame bg="bg-screen-grad">
+      {showCamera && (
+        <InAppCamera onCapture={onCapture} onCancel={() => setShowCamera(false)} />
+      )}
       <div className="flex flex-1 flex-col justify-between px-6 pb-8 pt-2 font-spline">
         <div className="flex flex-col gap-5">
           <BackButton to={ROUTES.profile} onClick={clearEditResume} />
