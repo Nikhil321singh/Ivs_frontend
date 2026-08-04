@@ -184,17 +184,19 @@ export default function ImeiResult() {
               {/* downloads */}
               <div className="flex flex-col gap-2.5">
                 <DownloadCard
-                  title="Download report (PDF)"
+                  title="Download device details (PDF)"
                   sub="Full CEIR details · shareable"
                   onClick={runPdf('report', downloadReport)}
                   busy={pdfBusy === 'report'}
                 />
-                <DownloadCard
-                  title="Download Certificate (PDF)"
-                  sub="Verification certificate · shareable"
-                  onClick={runPdf('certificate', downloadCertificate)}
-                  busy={pdfBusy === 'certificate'}
-                />
+                {status === 'CLEAN' && (
+                  <DownloadCard
+                    title="Download Certificate (PDF)"
+                    sub="Grest Certified · safe to trade"
+                    onClick={runPdf('certificate', downloadCertificate)}
+                    busy={pdfBusy === 'certificate'}
+                  />
+                )}
                 {pdfError && <p className="text-[12px] font-medium text-primary">{pdfError}</p>}
               </div>
             </>

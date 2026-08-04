@@ -17,10 +17,15 @@ export async function scanImei() {
 
   const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
 
-  // Camera permission — 'limited' also counts as usable.
-  const perm = await BarcodeScanner.requestPermissions()
-  if (perm.camera !== 'granted' && perm.camera !== 'limited') {
-    throw new Error('CAMERA_DENIED')
+  // Camera permission. Only 'prompt' states can raise the OS dialog, so check
+  // first and request when askable. If it's already been denied, Android won't
+  // re-prompt — surface CAMERA_BLOCKED so the UI can point the user to Settings.
+  let status = await BarcodeScanner.checkPermissions()
+  if (status.camera === 'prompt' || status.camera === 'prompt-with-rationale') {
+    status = await BarcodeScanner.requestPermissions()
+  }
+  if (status.camera !== 'granted' && status.camera !== 'limited') {
+    throw new Error(status.camera === 'denied' ? 'CAMERA_BLOCKED' : 'CAMERA_DENIED')
   }
 
   // The Google barcode scanner is an on-demand Play Services module; make sure
@@ -49,4 +54,12 @@ export async function scanImei() {
     if (digits.length >= 14) return digits.slice(0, 15)
   }
   throw new Error('NO_IMEI')
+}
+
+// Open the app's system settings so the user can flip Camera permission back on
+// after a hard denial (Android won't re-show the in-app prompt in that state).
+export async function openScannerSettings() {
+  if (!Capacitor.isNativePlatform()) return
+  const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
+  await BarcodeScanner.openSettings()
 }

@@ -4,6 +4,7 @@
 // user can save/share the file.
 import { jsPDF } from 'jspdf'
 import { Capacitor } from '@capacitor/core'
+import { certificateHtml, CERT_WIDTH } from './certificateTemplate'
 
 const PINK = [235, 38, 82]
 const INK = [23, 23, 28]
@@ -122,36 +123,83 @@ export async function downloadReport({ verify = {}, imei1, imei2, deviceModel, c
   await savePdf(doc, `Grest-IMEI-Report-${(imei1 || 'device').slice(-6)}.pdf`)
 }
 
-// Placeholder certificate — the real template will be supplied later.
-export async function downloadCertificate({ verify = {}, imei1, deviceModel, customerName } = {}) {
+// Group a bare IMEI into the certificate's "35 123456 789012 3" layout.
+const groupImei = (s) =>
+  String(s || '')
+    .replace(/\D/g, '')
+    .replace(/(.{2})(.{6})(.{6})(.{1}).*/, '$1 $2 $3 $4')
+    .trim() || '—'
+
+const certDate = (iso) => {
+  try {
+    return new Date(iso || Date.now())
+      .toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+      .replace(',', ' ·')
+  } catch {
+    return String(iso || '')
+  }
+}
+
+// Render an offscreen HTML node to a canvas with html2canvas. Waits for the
+// certificate's images and web fonts so nothing rasterises blank.
+async function htmlToCanvas(html) {
+  const html2canvas = (await import('html2canvas')).default
+  const host = document.createElement('div')
+  host.style.cssText = `position:fixed; left:-100000px; top:0; width:${CERT_WIDTH}px; background:#fff; z-index:-1;`
+  host.innerHTML = html
+  document.body.appendChild(host)
+  try {
+    const imgs = Array.from(host.querySelectorAll('img'))
+    await Promise.all(
+      imgs.map((img) =>
+        img.complete && img.naturalWidth
+          ? Promise.resolve()
+          : new Promise((res) => {
+              img.onload = res
+              img.onerror = res
+            }),
+      ),
+    )
+    if (document.fonts?.ready) await document.fonts.ready
+    return await html2canvas(host.firstElementChild, {
+      backgroundColor: '#ffffff',
+      scale: 1,
+      useCORS: true,
+      logging: false,
+      width: CERT_WIDTH,
+      windowWidth: CERT_WIDTH,
+    })
+  } finally {
+    document.body.removeChild(host)
+  }
+}
+
+// Certificate of verification — rasterises the certificate.html design (populated
+// from the verify result) and lays it onto one A4 page, centred, preserving aspect.
+export async function downloadCertificate({ verify = {}, imei1, deviceModel } = {}) {
+  const canvas = await htmlToCanvas(
+    certificateHtml({
+      imei: groupImei(imei1),
+      device: deviceModel || '—',
+      dateTime: certDate(verify.verifiedAt),
+      statusLabel: verify.imei1Status === 'CLEAN' ? 'SAFE' : statusText(verify.imei1Status),
+    }),
+  )
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()
-
-  doc.setDrawColor(...INDIGO).setLineWidth(2).rect(28, 28, W - 56, H - 56)
-  doc.setFont('helvetica', 'bold').setFontSize(24).setTextColor(...INDIGO)
-  doc.text('Certificate of Verification', W / 2, 130, { align: 'center' })
-  doc.setFont('helvetica', 'normal').setFontSize(12).setTextColor(...MUTED)
-  doc.text('This certifies that the device below was verified with Grest.', W / 2, 165, {
-    align: 'center',
-  })
-
-  let y = 240
-  const line = (label, value) => {
-    doc.setFont('helvetica', 'normal').setFontSize(11).setTextColor(...MUTED)
-    doc.text(label, W / 2, y, { align: 'center' })
-    doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(...INK)
-    doc.text(String(value || '—'), W / 2, y + 20, { align: 'center' })
-    y += 60
+  const M = 24
+  const ratio = canvas.height / canvas.width
+  let w = W - 2 * M
+  let h = w * ratio
+  if (h > H - 2 * M) {
+    h = H - 2 * M
+    w = h / ratio
   }
-  line('IMEI', imei1)
-  if (deviceModel) line('Device', deviceModel)
-  if (customerName) line('Customer', customerName)
-  line('Status', statusText(verify.imei1Status))
-  line('Reference', verify.referenceId)
-
-  doc.setFont('helvetica', 'italic').setFontSize(9).setTextColor(...MUTED)
-  doc.text('Draft template — final certificate design pending.', W / 2, H - 60, { align: 'center' })
+  const x = (W - w) / 2
+  const y = (H - h) / 2
+  doc.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', x, y, w, h)
 
   await savePdf(doc, `Grest-Certificate-${(imei1 || 'device').slice(-6)}.pdf`)
 }

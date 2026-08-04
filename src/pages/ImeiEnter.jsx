@@ -4,7 +4,7 @@ import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
 import AadhaarVerify from '../components/AadhaarVerify'
 import { ROUTES } from '../constants/routes'
-import { scanImei } from '../lib/scanner'
+import { scanImei, openScannerSettings } from '../lib/scanner'
 
 // Figma "IMEI Verification" (node 7683:2006). A short intake form — customer
 // name, Aadhaar (verified via OTP, same flow as account creation), device detail
@@ -30,6 +30,7 @@ export default function ImeiEnter() {
   const [imei1, setImei1] = useState('')
   const [imei2, setImei2] = useState('')
   const [scanError, setScanError] = useState('')
+  const [camBlocked, setCamBlocked] = useState(false) // permission hard-denied → offer Settings
 
   const onImei = (set) => (e) =>
     set(e.target.value.replace(/\D/g, '').slice(0, IMEI_LENGTH))
@@ -38,15 +39,18 @@ export default function ImeiEnter() {
 
   const onScan = async (set) => {
     setScanError('')
+    setCamBlocked(false)
     try {
       const imei = await scanImei()
       set(imei)
     } catch (err) {
       if (err.message === 'CANCELLED') return // user backed out — no error
+      if (err.message === 'CAMERA_BLOCKED') setCamBlocked(true)
       const map = {
         WEB_UNSUPPORTED: 'Scanning works on the phone app — type the IMEI here.',
-        CAMERA_DENIED: 'Camera access is off. Enable it in Settings to scan.',
-        NO_IMEI: "Couldn't read a barcode in that photo — retake it or type the IMEI.",
+        CAMERA_DENIED: 'Allow camera access to scan the IMEI barcode.',
+        CAMERA_BLOCKED: 'Camera access is off. Turn it on in Settings to scan.',
+        NO_IMEI: "Couldn't read a barcode there — line it up again or type the IMEI.",
       }
       setScanError(map[err.message] || 'Could not scan. Type the IMEI instead.')
     }
@@ -96,9 +100,10 @@ export default function ImeiEnter() {
               />
             </div>
 
-            {/* Aadhaar — OTP verification, same flow as account creation. Pay
-                stays locked until the customer's Aadhaar is verified. */}
-            <AadhaarVerify onVerified={setAadhaar} />
+            {/* Aadhaar — real OTP verification of the CUSTOMER's Aadhaar via the
+                /ivs/aadhaar/* endpoints (works every time, independent of the
+                account owner's KYC). Pay stays locked until verified. */}
+            <AadhaarVerify onVerified={setAadhaar} customer />
 
             {/* Device detail */}
             <div className="flex flex-col gap-[6px]">
@@ -128,12 +133,23 @@ export default function ImeiEnter() {
             />
 
             {scanError && (
-              <p className="text-[12px] font-medium text-primary">{scanError}</p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[12px] font-medium text-primary">{scanError}</p>
+                {camBlocked && (
+                  <button
+                    type="button"
+                    onClick={openScannerSettings}
+                    className="shrink-0 rounded-[8px] border-[1.5px] border-primary bg-white px-3 py-[6px] text-[12px] font-semibold text-primary active:bg-danger-subtle"
+                  >
+                    Open settings
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Re-check disclaimer — the verification is only as accurate as the
                 IMEI submitted, so nudge the user to confirm every digit. */}
-            <div className="mt-[4px] flex items-start gap-[8px] rounded-[11px] border-[1.5px] border-warning/25 bg-warning-subtle px-[12px] py-[10px]">
+            <div className="mt-[4px] mb-[6px] flex items-start gap-[8px] rounded-[11px] border-[1.5px] border-warning/25 bg-warning-subtle px-[12px] py-[10px]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="mt-[1px] shrink-0">
                 <path d="M12 3l9 16H3l9-16z" stroke="#B26B00" strokeWidth="1.8" strokeLinejoin="round" />
                 <path d="M12 10v4" stroke="#B26B00" strokeWidth="1.8" strokeLinecap="round" />
