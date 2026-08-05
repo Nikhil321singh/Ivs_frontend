@@ -1,0 +1,20 @@
+import puppeteer from 'puppeteer-core'
+const b = await puppeteer.launch({ executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless:'new', args:['--no-sandbox','--disable-gpu','--hide-scrollbars'] })
+const p = await b.newPage()
+await p.setViewport({ width:390, height:844, deviceScaleFactor:3, isMobile:true, hasTouch:true })
+await p.goto('http://localhost:5713/#/home', { waitUntil:'networkidle0' })
+await p.waitForFunction(()=>document.getElementById('root')?.innerText.trim().length>0,{timeout:10000})
+await new Promise(r=>setTimeout(r,400))
+// press-and-hold the first action card
+const card = await p.$('button')
+const box = await (await p.$$('button'))[1].boundingBox() // first action card (0=hamburger area? use theft card)
+// find the Theft Verification card
+const handle = await p.evaluateHandle(()=>[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Theft Verification')))
+const b2 = await handle.asElement().boundingBox()
+await p.mouse.move(b2.x+b2.width/2, b2.y+b2.height/2)
+await p.mouse.down()
+await new Promise(r=>setTimeout(r,180))
+await p.screenshot({ path:'/tmp/grest-press.png' })
+await p.mouse.up()
+console.log('pressed')
+await b.close()

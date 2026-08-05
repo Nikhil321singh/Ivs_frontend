@@ -1,0 +1,12 @@
+import puppeteer from 'puppeteer-core'
+const b = await puppeteer.launch({ executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless:'new', args:['--no-sandbox','--disable-gpu','--hide-scrollbars'] })
+const p = await b.newPage()
+await p.setViewport({ width:390, height:844, deviceScaleFactor:3, isMobile:true, hasTouch:true })
+await p.goto('http://localhost:5713/#/home', { waitUntil:'networkidle0' })
+await p.waitForFunction(()=>document.getElementById('root')?.innerText.trim().length>0,{timeout:10000})
+// navigate to a fresh screen and capture mid-fade (~120ms into the 300ms fade)
+await p.evaluate(()=>{ location.hash='#/imei' })
+await new Promise(r=>setTimeout(r,120))
+await p.screenshot({ path:'/tmp/grest-midfade.png' })
+console.log('captured mid-fade')
+await b.close()

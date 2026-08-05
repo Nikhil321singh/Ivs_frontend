@@ -1,0 +1,13 @@
+{
+  "appId": "in.grest.deviceservices",
+  "appName": "Grest",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

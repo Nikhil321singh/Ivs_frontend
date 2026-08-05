@@ -1,0 +1,61 @@
+# --- Dependencies ---
+node_modules/
+.pnp
+.pnp.js
+
+# --- Build output ---
+dist/
+dist-ssr/
+build/
+*.local
+
+# --- Vite / bundler cache ---
+.vite/
+.cache/
+.temp/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.keystore
+*.jks
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Editor / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.sw?
+
+# --- Testing / coverage ---
+coverage/
+*.lcov
+
+# --- Capacitor / native build artifacts ---
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+*.apk
+*.aab
+
+# --- Scratch ---
+scratchpad/
+tmp/
+
+# --- Docs / planning / prompts (internal) ---
+*.md
+prompt.txt
