@@ -8,7 +8,7 @@
 //   { files: [{ url, key }] }
 // — so callers (Verifications.jsx, SignSell.jsx) need no changes.
 import { uploadData } from 'aws-amplify/storage'
-import { S3_BUCKET, S3_REGION } from '../lib/amplify'
+import { ensureCognitoSession, S3_BUCKET, S3_REGION } from '../lib/amplify'
 
 const publicUrl = (key) => `https://${S3_BUCKET}.s3.${S3_REGION}.amazonaws.com/${key}`
 
@@ -26,6 +26,7 @@ const objectKey = (category, file) =>
 // Uploads one File or an array of Files under a category
 // ('device-photos' | 'signature' | 'misc'). Resolves to { files: [{ url, key }] }.
 export const uploadMedia = async (files, category = 'misc') => {
+  await ensureCognitoSession()
   const uploaded = await Promise.all(
     [].concat(files).map(async (file) => {
       const key = objectKey(category, file)
