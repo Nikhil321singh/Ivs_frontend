@@ -1,31 +1,39 @@
-// Mock activity history, grouped by service type. Figma: Record History 7750:1979.
-export const RECORD_GROUPS = [
-  {
-    group: 'Theft Verification',
-    icon: 'ic-rec-theft',
-    id: 'IVS-8842',
-    device: 'iPhone 13',
-    datetime: '12 Jun 2026 · 14:32',
-  },
-  {
-    group: 'Diagnoses',
-    icon: 'ic-rec-diagnose',
-    id: 'DGN-3391',
-    device: 'iPhone 14 Pro',
-    datetime: '16 Jul 2026 · 11:04',
-  },
-  {
-    group: 'Payment',
-    icon: 'ic-rec-payment',
-    id: 'Payment-40821',
-    device: null,
-    datetime: '10 Jul 2026 · 16:20',
-  },
-  {
-    group: 'Check Device Price',
-    icon: 'ic-rec-price',
-    id: 'TRD-2087',
-    device: 'iPhone 14 Pro',
-    datetime: '08 Jul 2026 · 12:10',
-  },
-]
+// Presentation helpers for the "Theft · Records" screen. The rows themselves are
+// real, fetched live from GET /ivs/history (see src/api/ivs.js) — this file only
+// maps a verification's status/date/IMEI into what the card renders.
+
+// CEIR status → badge tone + label. A certificate is only meaningful for a CLEAN
+// (safe-to-trade) device, so the page keys the download button off `CLEAN`.
+export const STATUS_BADGE = {
+  CLEAN: { label: 'Clean', tone: 'success' },
+  BLOCKED: { label: 'Blocked', tone: 'danger' },
+  STOLEN: { label: 'Stolen', tone: 'danger' },
+  UNKNOWN: { label: 'Not verified', tone: 'muted' },
+}
+
+export const statusBadge = (status) => STATUS_BADGE[status] || STATUS_BADGE.UNKNOWN
+
+// Group a bare 15-digit IMEI into the readable "35 471203 889541 2" layout.
+export const groupImei = (s) =>
+  String(s || '')
+    .replace(/\D/g, '')
+    .replace(/(.{2})(.{6})(.{6})(.{1}).*/, '$1 $2 $3 $4')
+    .trim() || '—'
+
+// "12 Jun 2026 · 14:32" — matches the Checked line in the Figma card.
+export const recordDate = (iso) => {
+  try {
+    return new Date(iso)
+      .toLocaleString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      })
+      .replace(',', ' ·')
+  } catch {
+    return '—'
+  }
+}

@@ -15,7 +15,12 @@ export default function Payment20() {
       backTo={ROUTES.imeiEnter}
       // Runs the real CEIR check, which debits 20 tokens and returns the result.
       chargeTokens={() =>
-        verifyImei({ imei1: state?.imei, imei2: state?.imei2, deviceModel: state?.deviceModel })
+        verifyImei({
+          imei1: state?.imei,
+          imei2: state?.imei2,
+          deviceModel: state?.deviceModel,
+          customerName: state?.customerName,
+        })
       }
       onPaid={(res) => navigate(ROUTES.imeiResult, { replace: true, state: { ...state, verify: res } })}
     />
