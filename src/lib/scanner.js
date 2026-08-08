@@ -8,12 +8,20 @@ import { Capacitor } from '@capacitor/core'
 // printed as a Code128 barcode on the box / SIM tray / under the battery.
 //
 // Throws a coded message the caller maps to UI:
-//   'WEB_UNSUPPORTED' — desktop browser (no native scanner)
-//   'CANCELLED'       — user backed out of the scanner (silent)
-//   'CAMERA_DENIED'   — camera permission refused
-//   'NO_IMEI'         — nothing that looks like a 15-digit IMEI was scanned
+//   'WEB_UNSUPPORTED'     — desktop browser (no native scanner)
+//   'CANCELLED'           — user backed out of the scanner (silent)
+//   'CAMERA_DENIED'       — camera permission refused
+//   'CAMERA_BLOCKED'      — permission hard-denied; only Settings can undo it
+//   'SCANNER_UNAVAILABLE' — native plugin missing from this build
+//   'NO_IMEI'             — nothing that looks like a 15-digit IMEI was scanned
 export async function scanImei() {
   if (!Capacitor.isNativePlatform()) throw new Error('WEB_UNSUPPORTED')
+
+  // The native scanner only exists if the MLKit pod / Gradle dep was part of the
+  // build. Drop it (as a simulator build does) and every call below rejects as
+  // "not implemented" — which, lumped in with the camera errors, reads as a
+  // permission problem and sends you looking in the wrong place. Check up front.
+  if (!Capacitor.isPluginAvailable('BarcodeScanner')) throw new Error('SCANNER_UNAVAILABLE')
 
   const { BarcodeScanner } = await import('@capacitor-mlkit/barcode-scanning')
 
@@ -41,7 +49,15 @@ export async function scanImei() {
   try {
     ;({ barcodes } = await BarcodeScanner.scan())
   } catch (err) {
-    if (/cancel/i.test(err?.message || '')) throw new Error('CANCELLED')
+    // Every branch below collapses the failure into a coded string, so log the
+    // real one first — otherwise a missing plugin, an ML Kit fault and a genuine
+    // permission denial are indistinguishable from the UI.
+    console.error('[scanner] BarcodeScanner.scan() failed:', err)
+    const msg = err?.message || ''
+    if (/cancel/i.test(msg)) throw new Error('CANCELLED')
+    if (err?.code === 'UNIMPLEMENTED' || /not implemented|unimplemented/i.test(msg)) {
+      throw new Error('SCANNER_UNAVAILABLE')
+    }
     throw new Error('CAMERA_DENIED')
   }
 

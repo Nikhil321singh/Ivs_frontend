@@ -1,0 +1,46 @@
+require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+platform :ios, '15.5'
+use_frameworks!
+
+# workaround to avoid Xcode caching of Pods that requires
+# Product -> Clean Build Folder after new Cordova plugins installed
+# Requires CocoaPods 1.6 or newer
+install! 'cocoapods', :disable_input_output_paths => true
+
+# MLKit still ships a legacy fat .framework with no arm64-simulator slice, so its
+# podspec sets EXCLUDED_ARCHS[sdk=iphonesimulator*] = arm64. That leaks into
+# Pods-App and forces the WHOLE app to build x86_64, which an Apple Silicon Mac's
+# arm64-only simulator refuses to install ("Grest Needs to Be Updated").
+# So we skip the pod for simulator builds only. Device builds (and archives) keep
+# it, since MLKit's arm64 device slice is fine. Barcode scanning is unavailable in
+# the simulator — which has no camera to scan with anyway.
+# Set CAP_SIM=1 to build for the simulator: CAP_SIM=1 pod install
+def capacitor_pods
+  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+  pod 'CapacitorMlkitBarcodeScanning', :path => '../../node_modules/@capacitor-mlkit/barcode-scanning'
+  pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
+  pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
+  pod 'CapacitorFilesystem', :path => '../../node_modules/@capacitor/filesystem'
+  pod 'CapacitorPreferences', :path => '../../node_modules/@capacitor/preferences'
+  pod 'CapacitorShare', :path => '../../node_modules/@capacitor/share'
+end
+
+target 'App' do
+  capacitor_pods
+  # Add your Pods here
+end
+
+post_install do |installer|
+  assertDeploymentTarget(installer)
+
+  # Keep every pod on the same deployment target as the app (15.0). Without this
+  # a pod built for a newer iOS than the app triggers "module X has a minimum
+  # deployment target of ..." at compile time.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+    end
+  end
+end

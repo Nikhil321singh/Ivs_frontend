@@ -1,5 +1,14 @@
 apply plugin: 'com.android.application'
 
+// Release signing credentials live in android/keystore.properties (gitignored).
+// When that file is absent — CI, a fresh clone — the release build falls back to
+// producing an unsigned APK rather than failing to configure.
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace "in.grest.deviceservices"
     compileSdk rootProject.ext.compileSdkVersion
@@ -16,8 +25,26 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    buildTypes {
+    signingConfigs {
         release {
+            if (keystorePropertiesFile.exists()) {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // Distinct package ID so a debug build can sit alongside a
+            // release-signed install of the same app on one device.
+            applicationIdSuffix ".debug"
+        }
+        release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

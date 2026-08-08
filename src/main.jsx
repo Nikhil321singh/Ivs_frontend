@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { SettingsProvider } from './context/SettingsContext.jsx'
 // Side-effect import: runs Amplify.configure() before anything uploads to S3.
 import './lib/amplify.js'
 // Bundle Inter locally (offline-safe for the Capacitor WebView; no CDN dependency)
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <HashRouter>
         <AuthProvider>
-          <App />
+          <SettingsProvider>
+            <App />
+          </SettingsProvider>
         </AuthProvider>
       </HashRouter>
     </ErrorBoundary>

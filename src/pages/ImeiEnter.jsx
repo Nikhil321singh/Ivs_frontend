@@ -4,6 +4,7 @@ import PhoneFrame from '../components/PhoneFrame'
 import BackButton from '../components/BackButton'
 import AadhaarVerify from '../components/AadhaarVerify'
 import { ROUTES } from '../constants/routes'
+import { useSettings } from '../context/SettingsContext'
 import { scanImei, openScannerSettings } from '../lib/scanner'
 
 // Figma "IMEI Verification" (node 7683:2006). A short intake form — customer
@@ -23,6 +24,7 @@ const BOX =
 
 export default function ImeiEnter() {
   const navigate = useNavigate()
+  const { aadhaarVerificationEnabled } = useSettings()
 
   const [customerName, setCustomerName] = useState('')
   const [aadhaar, setAadhaar] = useState('') // set once the customer's Aadhaar is OTP-verified
@@ -35,7 +37,9 @@ export default function ImeiEnter() {
   const onImei = (set) => (e) =>
     set(e.target.value.replace(/\D/g, '').slice(0, IMEI_LENGTH))
 
-  const complete = imei1.length === IMEI_LENGTH && !!aadhaar
+  // Customer Aadhaar step is skipped entirely while the operator has Aadhaar
+  // verification off — the block is unmounted, so no /ivs/aadhaar/* call fires.
+  const complete = imei1.length === IMEI_LENGTH && (!aadhaarVerificationEnabled || !!aadhaar)
 
   const onScan = async (set) => {
     setScanError('')
@@ -50,6 +54,7 @@ export default function ImeiEnter() {
         WEB_UNSUPPORTED: 'Scanning works on the phone app — type the IMEI here.',
         CAMERA_DENIED: 'Allow camera access to scan the IMEI barcode.',
         CAMERA_BLOCKED: 'Camera access is off. Turn it on in Settings to scan.',
+        SCANNER_UNAVAILABLE: 'Scanning is unavailable in this build — type the IMEI here.',
         NO_IMEI: "Couldn't read a barcode there — line it up again or type the IMEI.",
       }
       setScanError(map[err.message] || 'Could not scan. Type the IMEI instead.')
@@ -103,7 +108,7 @@ export default function ImeiEnter() {
             {/* Aadhaar — real OTP verification of the CUSTOMER's Aadhaar via the
                 /ivs/aadhaar/* endpoints (works every time, independent of the
                 account owner's KYC). Pay stays locked until verified. */}
-            <AadhaarVerify onVerified={setAadhaar} customer />
+            {aadhaarVerificationEnabled && <AadhaarVerify onVerified={setAadhaar} customer />}
 
             {/* Device detail */}
             <div className="flex flex-col gap-[6px]">

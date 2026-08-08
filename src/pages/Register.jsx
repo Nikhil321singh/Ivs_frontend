@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import InAppCamera from '../components/InAppCamera'
 import PhoneFrame from '../components/PhoneFrame'
@@ -10,8 +10,10 @@ import { PrimaryButton } from '../components/Button'
 import useCountdown from '../hooks/useCountdown'
 import { ROUTES } from '../constants/routes'
 import { useAuth } from '../context/AuthContext'
-import { sendAadhaarOtp, verifyAadhaarOtp, completeKyc } from '../api/user'
+import { useSettings } from '../context/SettingsContext'
+import { sendAadhaarOtp, verifyAadhaarOtp, completeKyc, skipKyc } from '../api/user'
 import { toPan, toGst, toAadhaar, toPhone, toEmail } from '../utils/format'
+import { TEST_BYPASS, TEST_AADHAAR, TEST_OTP } from '../constants/testBypass'
 
 const OTP_LEN = 6
 
@@ -34,6 +36,13 @@ const errMsg = (err) =>
 export default function Register() {
   const navigate = useNavigate()
   const { user, setUser } = useAuth()
+
+  // Operator switches. Re-read on entry (not just at launch) so a toggle made
+  // while the app sat on Home is picked up before the form is filled in.
+  const { aadhaarVerificationEnabled, kycRequired, refresh: refreshSettings } = useSettings()
+  useEffect(() => {
+    refreshSettings()
+  }, [refreshSettings])
 
   const [type, setType] = useState('individual')
   const isVendor = type === 'vendor'
@@ -120,8 +129,20 @@ export default function Register() {
   }
 
   const onSendAadhaarOtp = async () => {
+    // Belt and braces: the block is unmounted while the switch is off, but never
+    // let a stray call reach /user/aadhaar/* regardless of render state.
+    if (!aadhaarVerificationEnabled) return
     if (!isAadhaar(aadhaar) || sendingOtp) return
     setAadhaarErr('')
+
+    // Test bypass: skip the real UIDAI send for the sandbox Aadhaar number.
+    if (TEST_BYPASS && rawDigits(aadhaar) === TEST_AADHAAR) {
+      setOtpStage('sent')
+      setOtp('')
+      restart()
+      return
+    }
+
     setSendingOtp(true)
     try {
       await sendAadhaarOtp(rawDigits(aadhaar))
@@ -136,8 +157,18 @@ export default function Register() {
   }
 
   const onVerifyAadhaarOtp = async () => {
+    if (!aadhaarVerificationEnabled) return
     if (otp.length !== OTP_LEN || verifyingOtp) return
     setAadhaarErr('')
+
+    // Test bypass: accept the fixed OTP for the sandbox Aadhaar number only.
+    // setUser is skipped here deliberately — "Create account" still calls
+    // completeKyc, which returns the authoritative user record.
+    if (TEST_BYPASS && rawDigits(aadhaar) === TEST_AADHAAR && otp === TEST_OTP) {
+      setOtpStage('verified')
+      return
+    }
+
     setVerifyingOtp(true)
     try {
       const { user } = await verifyAadhaarOtp(otp)
@@ -150,28 +181,63 @@ export default function Register() {
     }
   }
 
-  const commonValid = name.trim().length >= 2 && isPhone(loginMobile) && isEmail(email) && isPan(pan)
+  // With kycRequired off every field is optional, but anything actually typed is
+  // still format-checked — the backend 422s on a malformed value either way, so
+  // catching it here keeps the error inline instead of after a round trip.
+  const opt = (value, test) => (kycRequired ? test(value) : !value?.trim() || test(value))
+
+  const commonValid =
+    (kycRequired ? name.trim().length >= 2 : !name.trim() || name.trim().length >= 2) &&
+    (kycRequired ? isPhone(loginMobile) : !loginMobile || isPhone(loginMobile)) &&
+    opt(email, isEmail) &&
+    opt(pan, isPan)
+
+  // Aadhaar only gates submission while it is both switched on and required.
+  const aadhaarGates = aadhaarVerificationEnabled && kycRequired
   const canSubmit = isVendor
-    ? commonValid && isGst(gst) && !!photoFile
-    : commonValid && isAadhaar(aadhaar) && aadhaarVerified
+    ? commonValid && opt(gst, isGst) && (!kycRequired || !!photoFile)
+    : commonValid && (!aadhaarGates || (isAadhaar(aadhaar) && aadhaarVerified))
+
+  // Only offered while kycRequired is off — /user/skip-kyc 403s otherwise.
+  const onSkip = async () => {
+    if (submitting) return
+    setError('')
+    setSubmitting(true)
+    try {
+      await skipKyc()
+      navigate(ROUTES.home, { replace: true })
+    } catch (err) {
+      setError(errMsg(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const onSubmit = async () => {
     if (!canSubmit || submitting) return
     setError('')
     setSubmitting(true)
 
+    // Only send fields that carry a value. With kycRequired off the backend
+    // accepts an empty body, and sending "" would fail its format check.
     const fd = new FormData()
-    fd.append('userType', type)
-    fd.append('phone', loginMobile)
-    fd.append('email', email.trim())
-    fd.append('panNumber', pan.trim())
+    const put = (key, value) => {
+      if (value != null && String(value).trim() !== '') fd.append(key, String(value).trim())
+    }
+
+    put('userType', type)
+    put('phone', loginMobile)
+    put('email', email)
+    put('panNumber', pan)
     if (isVendor) {
-      fd.append('companyName', name.trim())
-      fd.append('gstNumber', gst.trim())
+      put('companyName', name)
+      put('gstNumber', gst)
       if (photoFile) fd.append('profileImage', photoFile)
     } else {
-      fd.append('name', name.trim())
-      fd.append('aadhaarNumber', rawDigits(aadhaar))
+      put('name', name)
+      // Omitted entirely while Aadhaar verification is switched off — the
+      // backend completes KYC without it.
+      if (aadhaarVerificationEnabled) put('aadhaarNumber', rawDigits(aadhaar))
     }
 
     try {
@@ -294,7 +360,7 @@ export default function Register() {
                 value={gst}
                 onChange={(e) => setGst(toGst(e.target.value))}
               />
-            ) : (
+            ) : !aadhaarVerificationEnabled ? null : (
               /* Aadhaar + OTP verification — Create account stays locked until verified */
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-end gap-2">
@@ -365,9 +431,23 @@ export default function Register() {
           )}
         </div>
 
-        <PrimaryButton onClick={onSubmit} disabled={!canSubmit || submitting} className="mt-4">
-          {submitting ? 'Creating…' : 'Create account'}
-        </PrimaryButton>
+        <div className="mt-4 flex flex-col gap-2">
+          <PrimaryButton onClick={onSubmit} disabled={!canSubmit || submitting}>
+            {submitting ? 'Creating…' : 'Create account'}
+          </PrimaryButton>
+
+          {/* Gated on the setting: /user/skip-kyc 403s while KYC is required. */}
+          {!kycRequired && (
+            <button
+              type="button"
+              onClick={onSkip}
+              disabled={submitting}
+              className="py-2 text-[13px] font-semibold text-muted transition active:text-ink disabled:opacity-40"
+            >
+              Skip for now
+            </button>
+          )}
+        </div>
       </div>
     </PhoneFrame>
   )

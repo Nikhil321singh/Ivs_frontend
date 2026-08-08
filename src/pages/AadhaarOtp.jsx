@@ -7,6 +7,11 @@ import { PrimaryButton } from '../components/Button'
 import useCountdown from '../hooks/useCountdown'
 import { ROUTES } from '../constants/routes'
 import { sendAadhaarOtp, verifyAadhaarOtp } from '../api/user'
+import { useSettings } from '../context/SettingsContext'
+import { TEST_BYPASS, TEST_AADHAAR, TEST_OTP } from '../constants/testBypass'
+
+const errMsg = (err) =>
+  err?.errors?.[0]?.message || err?.message || 'Something went wrong. Please try again.'
 
 // Figma: "Verify & pay" (§6.6). Confirms the UIDAI e-KYC OTP (real endpoint,
 // 6 digits) sent to the Aadhaar-registered mobile, then completes the ₹5 record.
@@ -16,6 +21,7 @@ const OTP_LENGTH = 6
 export default function AadhaarOtp() {
   const navigate = useNavigate()
   const { state } = useLocation()
+  const { aadhaarVerificationEnabled } = useSettings()
   const aadhaar = state?.aadhaar
 
   const [code, setCode] = useState('')
@@ -26,15 +32,26 @@ export default function AadhaarOtp() {
   // Reached without an initiated request — send them back to enter details.
   if (!aadhaar) return <Navigate to={ROUTES.aadhaar} replace />
 
+  // Switched off mid-flow (or reached by a stale back-stack entry): leave rather
+  // than render an OTP screen whose endpoints we must not call.
+  if (!aadhaarVerificationEnabled) return <Navigate to={ROUTES.home} replace />
+
   const onSubmit = async () => {
     if (code.length !== OTP_LENGTH || loading) return
     setError('')
+
+    // Test bypass: accept the fixed OTP for the sandbox Aadhaar number only.
+    if (TEST_BYPASS && aadhaar === TEST_AADHAAR && code === TEST_OTP) {
+      navigate(ROUTES.home, { replace: true })
+      return
+    }
+
     setLoading(true)
     try {
       await verifyAadhaarOtp(code)
       navigate(ROUTES.home, { replace: true })
     } catch (err) {
-      setError(err.message || 'Invalid or expired OTP.')
+      setError(errMsg(err))
     } finally {
       setLoading(false)
     }
@@ -47,7 +64,7 @@ export default function AadhaarOtp() {
       setCode('')
       restart()
     } catch (err) {
-      setError(err.message || 'Could not resend the OTP.')
+      setError(errMsg(err))
     }
   }
 

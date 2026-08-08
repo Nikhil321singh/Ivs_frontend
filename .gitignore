@@ -21,6 +21,7 @@ build/
 *.key
 *.keystore
 *.jks
+android/keystore.properties
 
 # --- Logs ---
 logs/

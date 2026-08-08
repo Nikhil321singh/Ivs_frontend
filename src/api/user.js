@@ -29,3 +29,8 @@ export const verifyAadhaarOtp = (otp) =>
 //               profileImage (owner image, required).
 export const completeKyc = (formData) =>
   apiRequest('/user/complete-kyc', { method: 'POST', isForm: true, body: formData })
+
+// POST /user/skip-kyc — marks the user complete without collecting anything.
+// Only available while the operator has kycRequired off; returns 403 otherwise,
+// so callers must gate the action on that setting rather than offering it blind.
+export const skipKyc = () => apiRequest('/user/skip-kyc', { method: 'POST' })
